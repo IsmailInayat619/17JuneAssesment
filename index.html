@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Personal Assistant App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f5f5f5;
+    }
+    header {
+      background-color: #333;
+      color: white;
+      text-align: center;
+      padding: 1rem;
+    }
+    main {
+      padding: 1rem;
+    }
+    section {
+      background: white;
+      margin: 1rem 0;
+      padding: 1rem;
+      border-radius: 8px;
+    }
+    input, textarea, select, button {
+      display: block;
+      width: 100%;
+      margin: 0.5rem 0;
+      padding: 0.5rem;
+      box-sizing: border-box;
+    }
+    .task {
+      background: #e1f5fe;
+      padding: 0.5rem;
+      margin: 0.5rem 0;
+      border-radius: 5px;
+    }
+    .completed {
+      text-decoration: line-through;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Personal Assistant Web App</h1>
+    <button onclick="toggleTheme()">Toggle Theme</button>
+  </header>
+  <main>
+    <section id="dashboard">
+      <h2>Dashboard</h2>
+      <div id="dashboardContent">Loading summary...</div>
+    </section>
+
+    <section id="tasks">
+      <h2>Task Management</h2>
+      <input type="text" id="taskTitle" placeholder="Task Title" />
+      <input type="date" id="taskDue" />
+      <select id="taskPriority">
+        <option>Low</option>
+        <option>Medium</option>
+        <option>High</option>
+      </select>
+      <select id="taskRecurring">
+        <option value="none">One-time</option>
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+      </select>
+      <button onclick="addTask()">Add Task</button>
+      <div id="taskList"></div>
+      <p id="taskStats"></p>
+    </section>
+
+    <section id="budget">
+      <h2>Budget Tracker</h2>
+      <input type="text" id="budgetDesc" placeholder="Description" />
+      <input type="number" id="budgetAmount" placeholder="Amount" />
+      <select id="budgetType">
+        <option>Income</option>
+        <option>Expense</option>
+      </select>
+      <button onclick="addBudgetEntry()">Add Entry</button>
+      <div id="budgetList"></div>
+    </section>
+
+    <section id="notes">
+      <h2>Notes</h2>
+      <textarea id="noteContent" placeholder="Write your note..."></textarea>
+      <button onclick="addNote()">Save Note</button>
+      <div id="noteList"></div>
+    </section>
+  </main>
+
+  <script>
+    // Theme Toggle
+    function toggleTheme() {
+      const current = localStorage.getItem("theme") || "light";
+      const next = current === "light" ? "dark" : "light";
+      document.body.style.backgroundColor = next === "dark" ? "#222" : "#f5f5f5";
+      document.body.style.color = next === "dark" ? "#fff" : "#000";
+      localStorage.setItem("theme", next);
+    }
+    if (localStorage.getItem("theme") === "dark") toggleTheme();
+
+    // Task Functions
+    function addTask() {
+      const title = document.getElementById("taskTitle").value;
+      const due = document.getElementById("taskDue").value;
+      const priority = document.getElementById("taskPriority").value;
+      const recurring = document.getElementById("taskRecurring").value;
+      if (!title || !due) return alert("Enter title and due date.");
+      const task = { title, due, priority, recurring, completed: false };
+      let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+      tasks.push(task);
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+      displayTasks();
+    }
+
+    function toggleComplete(index) {
+      let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+      tasks[index].completed = !tasks[index].completed;
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+      displayTasks();
+    }
+
+    function displayTasks() {
+      const taskList = document.getElementById("taskList");
+      const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+      let completed = 0;
+      taskList.innerHTML = tasks
+        .map((t, i) => {
+          if (t.completed) completed++;
+          return `<div class="task ${t.completed ? "completed" : ""}">
+            <input type="checkbox" ${t.completed ? "checked" : ""} onclick="toggleComplete(${i})" />
+            <b>${t.title}</b> – Due: ${t.due} – ${t.priority} (${t.recurring})
+          </div>`;
+        })
+        .join("");
+      document.getElementById("taskStats").textContent = `Completed: ${completed}/${tasks.length}`;
+    }
+
+    // Budget Functions
+    function addBudgetEntry() {
+      const desc = document.getElementById("budgetDesc").value;
+      const amount = parseFloat(document.getElementById("budgetAmount").value);
+      const type = document.getElementById("budgetType").value;
+      if (!desc || isNaN(amount)) return alert("Enter valid budget info.");
+      const entry = { desc, amount, type };
+      let budget = JSON.parse(localStorage.getItem("budget")) || [];
+      budget.push(entry);
+      localStorage.setItem("budget", JSON.stringify(budget));
+      displayBudget();
+    }
+
+    function displayBudget() {
+      const budgetList = document.getElementById("budgetList");
+      const budget = JSON.parse(localStorage.getItem("budget")) || [];
+      let income = 0, expense = 0;
+      budgetList.innerHTML = budget
+        .map(b => {
+          if (b.type === "Income") income += b.amount;
+          else expense += b.amount;
+          return `<div>${b.type}: ${b.desc} – €${b.amount.toFixed(2)}</div>`;
+        })
+        .join("");
+      budgetList.innerHTML += `<hr><b>Balance: €${(income - expense).toFixed(2)}</b>`;
+    }
+
+    // Notes Functions
+    function addNote() {
+      const content = document.getElementById("noteContent").value;
+      if (!content) return alert("Note cannot be empty.");
+      let notes = JSON.parse(localStorage.getItem("notes")) || [];
+      notes.push({ content });
+      localStorage.setItem("notes", JSON.stringify(notes));
+      displayNotes();
+    }
+
+    function displayNotes() {
+      const noteList = document.getElementById("noteList");
+      const notes = JSON.parse(localStorage.getItem("notes")) || [];
+      noteList.innerHTML = notes.map(n => `<div>✎ ${n.content}</div>`).join("");
+    }
+
+    // Dashboard
+    function updateDashboard() {
+      const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+      const budget = JSON.parse(localStorage.getItem("budget")) || [];
+      const notes = JSON.parse(localStorage.getItem("notes")) || [];
+      const tip = "Stay focused! Prioritize one key task today.";
+      document.getElementById("dashboardContent").innerHTML = `
+        <p><b>Tasks:</b> ${tasks.length}</p>
+        <p><b>Budget Entries:</b> ${budget.length}</p>
+        <p><b>Notes:</b> ${notes.length}</p>
+        <p><b>Tip:</b> ${tip}</p>
+      `;
+    }
+
+    // Initial Load
+    displayTasks();
+    displayBudget();
+    displayNotes();
+    updateDashboard();
+  </script>
+</body>
+</html>
