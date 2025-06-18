@@ -1,0 +1,349 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Personal Assistant App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f5f5f5;
+    }
+    header {
+      background-color: #333;
+      color: white;
+      text-align: center;
+      padding: 1rem;
+    }
+    main {
+      padding: 1rem;
+    }
+    section {
+      background: white;
+      margin: 1rem 0;
+      padding: 1rem;
+      border-radius: 8px;
+    }
+    input, textarea, select, button {
+      display: block;
+      width: 100%;
+      margin: 0.5rem 0;
+      padding: 0.5rem;
+      box-sizing: border-box;
+    }
+    .task {
+      background: #e1f5fe;
+      padding: 0.5rem;
+      margin: 0.5rem 0;
+      border-radius: 5px;
+    }
+    .completed {
+      text-decoration: line-through;
+      opacity: 0.6;
+    }
+    .dashboard-box {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+    }
+    .dashboard-item {
+      background: #e3f2fd;
+      padding: 1rem;
+      border-radius: 8px;
+      text-align: center;
+    }
+    canvas {
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Personal Assistant Web App</h1>
+    <button onclick="toggleTheme()">Toggle Theme</button>
+  </header>
+  <main>
+    <!-- Dashboard -->
+    <section id="dashboard">
+      <h2>Dashboard</h2>
+      <div class="dashboard-box">
+        <div class="dashboard-item" id="taskSummary">Loading tasks...</div>
+        <div class="dashboard-item" id="budgetSummary">Loading budget...</div>
+        <div class="dashboard-item" id="noteSummary">Loading notes...</div>
+        <div class="dashboard-item" id="dailyTip">Loading tip...</div>
+      </div>
+    </section>
+
+    <!-- Tasks -->
+    <section id="tasks">
+      <h2>Task Management</h2>
+      <input type="text" id="taskTitle" placeholder="Task Title" />
+      <input type="date" id="taskDue" />
+      <select id="taskPriority">
+        <option>Low</option>
+        <option>Medium</option>
+        <option>High</option>
+      </select>
+      <select id="taskRecurring">
+        <option value="none">One-time</option>
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+      </select>
+      <button onclick="addTask()">Add Task</button>
+      <button onclick="applyTemplate()">Use Task Template</button>
+      <div id="taskList"></div>
+      <p id="taskStats"></p>
+    </section>
+
+    <!-- Budget -->
+    <section id="budget">
+      <h2>Budget Tracker</h2>
+      <input type="text" id="budgetDesc" placeholder="Description" />
+      <input type="number" id="budgetAmount" placeholder="Amount" />
+      <select id="budgetType">
+        <option>Income</option>
+        <option>Expense</option>
+      </select>
+      <input type="number" id="monthlyGoal" placeholder="Monthly Goal (€)" />
+      <button onclick="addBudgetEntry()">Add Entry</button>
+      <canvas id="budgetChart" width="400" height="50"></canvas>
+      <div id="budgetList"></div>
+      <p id="budgetInsights"></p>
+    </section>
+
+    <!-- Notes -->
+    <section id="notes">
+      <h2>Notes</h2>
+      <input type="text" id="noteTags" placeholder="Tags (comma separated)" />
+      <textarea id="noteContent" placeholder="Write your note using *markdown*..."></textarea>
+      <button onclick="addNote()">Save Note</button>
+      <input type="text" id="searchNotes" placeholder="Search notes..." onkeyup="filterNotes()" />
+      <div id="noteList"></div>
+      <hr>
+      <h3>Export / Import Notes</h3>
+      <button onclick="exportNotes()">Export Notes (JSON)</button>
+      <input type="file" id="importFile" accept="application/json" onchange="importNotes(event)" />
+      <button onclick="shareSummary()">Generate Summary</button>
+      <pre id="noteSummary"></pre>
+      <hr>
+      <h3>Theme Customization</h3>
+      <select id="themeSelect" onchange="applyTheme(this.value)">
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+        <option value="blue">Blue</option>
+      </select>
+    </section>
+  </main>
+
+  <script>
+    const themes = {
+      light: { background: "#f5f5f5", color: "#000" },
+      dark: { background: "#222", color: "#fff" },
+      blue: { background: "#e3f2fd", color: "#003366" }
+    };
+
+    function toggleTheme() {
+      const current = localStorage.getItem("theme") || "light";
+      const next = current === "light" ? "dark" : "light";
+      applyTheme(next);
+      document.getElementById("themeSelect").value = next;
+    }
+
+    function applyTheme(theme) {
+      const t = themes[theme] || themes.light;
+      document.body.style.backgroundColor = t.background;
+      document.body.style.color = t.color;
+      localStorage.setItem("theme", theme);
+    }
+
+    function initTheme() {
+      const saved = localStorage.getItem("theme") || "light";
+      document.getElementById("themeSelect").value = saved;
+      applyTheme(saved);
+    }
+
+    function updateDashboard() {
+      const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+      const budget = JSON.parse(localStorage.getItem("budget")) || [];
+      const notes = JSON.parse(localStorage.getItem("notes")) || [];
+      const upcomingTask = tasks.find(t => !t.completed && new Date(t.due) >= new Date());
+      const totalIncome = budget.filter(b => b.type === "Income").reduce((sum, b) => sum + b.amount, 0);
+      const totalExpense = budget.filter(b => b.type === "Expense").reduce((sum, b) => sum + b.amount, 0);
+      const tipList = [
+        "Focus on one key task today.",
+        "Review your budget weekly.",
+        "Write a quick reflection note each night.",
+        "Check recurring tasks for updates.",
+        "Balance high-priority and easy tasks."
+      ];
+      const dailyTip = tipList[new Date().getDay() % tipList.length];
+      document.getElementById("taskSummary").innerHTML = `<b>Tasks:</b><br>${tasks.length} total<br>${upcomingTask ? "Upcoming: " + upcomingTask.title : "No upcoming tasks"}`;
+      document.getElementById("budgetSummary").innerHTML = `<b>Budget:</b><br>Income €${totalIncome.toFixed(2)}<br>Expense €${totalExpense.toFixed(2)}<br><b>Balance:</b> €${(totalIncome - totalExpense).toFixed(2)}`;
+      document.getElementById("noteSummary").innerHTML = `<b>Notes:</b><br>${notes.length} saved`;
+      document.getElementById("dailyTip").innerHTML = `<b>Tip:</b><br>${dailyTip}`;
+    }
+
+    function addTask() {
+      const title = document.getElementById("taskTitle").value;
+      const due = document.getElementById("taskDue").value;
+      const priority = document.getElementById("taskPriority").value;
+      const recurring = document.getElementById("taskRecurring").value;
+      if (!title || !due) return alert("Enter title and due date.");
+      const task = { title, due, priority, recurring, completed: false };
+      let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+      tasks.push(task);
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+      displayTasks(); updateDashboard();
+    }
+
+    function applyTemplate() {
+      document.getElementById("taskTitle").value = "Weekly Planning";
+      document.getElementById("taskDue").valueAsDate = new Date();
+      document.getElementById("taskPriority").value = "Medium";
+      document.getElementById("taskRecurring").value = "weekly";
+    }
+
+    function toggleComplete(index) {
+      let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+      tasks[index].completed = !tasks[index].completed;
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+      displayTasks(); updateDashboard();
+    }
+
+    function displayTasks() {
+      const taskList = document.getElementById("taskList");
+      const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+      let completed = 0;
+      taskList.innerHTML = tasks.map((t, i) => {
+        if (t.completed) completed++;
+        return `<div class="task ${t.completed ? "completed" : ""}">
+          <input type="checkbox" ${t.completed ? "checked" : ""} onclick="toggleComplete(${i})">
+          <b>${t.title}</b> – Due: ${t.due} – ${t.priority} (${t.recurring})
+        </div>`;
+      }).join("");
+      document.getElementById("taskStats").textContent = `Completed: ${completed}/${tasks.length}`;
+    }
+
+    function addBudgetEntry() {
+      const desc = document.getElementById("budgetDesc").value;
+      const amount = parseFloat(document.getElementById("budgetAmount").value);
+      const type = document.getElementById("budgetType").value;
+      if (!desc || isNaN(amount)) return alert("Enter valid budget info.");
+      const entry = { desc, amount, type, date: new Date().toISOString() };
+      let budget = JSON.parse(localStorage.getItem("budget")) || [];
+      budget.push(entry);
+      localStorage.setItem("budget", JSON.stringify(budget));
+      displayBudget(); updateDashboard();
+    }
+
+    function displayBudget() {
+      const budget = JSON.parse(localStorage.getItem("budget")) || [];
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const filtered = budget.filter(b => b.date.startsWith(currentMonth));
+      let income = 0, expense = 0;
+      filtered.forEach(b => b.type === 'Income' ? income += b.amount : expense += b.amount);
+      const goal = parseFloat(document.getElementById("monthlyGoal").value) || 0;
+      const savings = income - expense;
+      const insight = goal > 0 ? (savings >= goal ? "On track" : "Over budget") : "Goal not set";
+      document.getElementById("budgetList").innerHTML = filtered.map(b => `<div>${b.type}: ${b.desc} – €${b.amount.toFixed(2)}</div>`).join('');
+      document.getElementById("budgetInsights").textContent = `Monthly Summary: Income €${income.toFixed(2)}, Expense €${expense.toFixed(2)}, Savings €${savings.toFixed(2)}. Goal: €${goal} → ${insight}`;
+      renderBudgetChart(income, expense);
+    }
+
+    function renderBudgetChart(income, expense) {
+      const canvas = document.getElementById("budgetChart");
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const total = income + expense;
+      const incomeWidth = (income / total) * canvas.width;
+      const expenseWidth = (expense / total) * canvas.width;
+      ctx.fillStyle = "#4caf50"; ctx.fillRect(0, 0, incomeWidth, 50);
+      ctx.fillStyle = "#f44336"; ctx.fillRect(incomeWidth, 0, expenseWidth, 50);
+    }
+
+    function addNote() {
+      const content = document.getElementById("noteContent").value;
+      const tags = document.getElementById("noteTags").value.split(',').map(tag => tag.trim()).filter(Boolean);
+      if (!content) return alert("Note cannot be empty.");
+      const note = { content, tags, date: new Date().toISOString() };
+      let notes = JSON.parse(localStorage.getItem("notes")) || [];
+      notes.push(note);
+      localStorage.setItem("notes", JSON.stringify(notes));
+      displayNotes(); updateDashboard();
+    }
+
+    function displayNotes() {
+      const notes = JSON.parse(localStorage.getItem("notes")) || [];
+      const noteList = document.getElementById("noteList");
+      noteList.innerHTML = notes.map((n, i) => {
+        const content = n.content.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        const tags = n.tags.map(t => `#${t}`).join(' ');
+        const related = suggestRelatedNotes(n, notes.filter((_, idx) => idx !== i));
+        return `<div><strong>Note:</strong><br>${content}<br><small>${tags}</small><br><em>Related: ${related}</em></div><hr>`;
+      }).join('');
+    }
+
+    function suggestRelatedNotes(note, others) {
+      const tagSet = new Set(note.tags);
+      const match = others.find(n => n.tags.some(t => tagSet.has(t)));
+      return match ? match.content.slice(0, 30) + '...' : 'None';
+    }
+
+    function filterNotes() {
+      const query = document.getElementById("searchNotes").value.toLowerCase();
+      const notes = JSON.parse(localStorage.getItem("notes")) || [];
+      const filtered = notes.filter(n => n.content.toLowerCase().includes(query) || n.tags.some(t => t.includes(query)));
+      const noteList = document.getElementById("noteList");
+      noteList.innerHTML = filtered.map((n, i) => {
+        const content = n.content.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        const tags = n.tags.map(t => `#${t}`).join(' ');
+        return `<div><strong>Note:</strong><br>${content}<br><small>${tags}</small></div><hr>`;
+      }).join('');
+    }
+
+    function exportNotes() {
+      const notes = localStorage.getItem("notes");
+      const blob = new Blob([notes], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "notes.json";
+      a.click(); URL.revokeObjectURL(url);
+    }
+
+    function importNotes(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (!Array.isArray(data)) throw new Error("Invalid format");
+          localStorage.setItem("notes", JSON.stringify(data));
+          displayNotes();
+          alert("Notes imported successfully.");
+        } catch {
+          alert("Failed to import notes.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function shareSummary() {
+      const notes = JSON.parse(localStorage.getItem("notes")) || [];
+      const summary = notes.map((n, i) => `Note ${i+1}: ${n.content.substring(0, 50)}... Tags: ${n.tags.join(', ')}`).join('\n');
+      document.getElementById("noteSummary").textContent = summary;
+    }
+
+    // Init
+    initTheme();
+    displayTasks();
+    displayBudget();
+    displayNotes();
+    updateDashboard();
+  </script>
+</body>
+</html>
